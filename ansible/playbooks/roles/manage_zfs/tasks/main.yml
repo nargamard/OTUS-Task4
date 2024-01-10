@@ -1,0 +1,134 @@
+---
+# Посмотрим список дисков и выведем его в лог
+- name: Get disk information
+  shell: lsblk > /tmp/logfile
+  register: lsblk_info
+
+# Включим модуль ядра zfs
+- name: modprobe zfs
+  community.general.modprobe:
+    name: zfs
+    state: present
+
+# Создадим зеркальный пул на двух дисках
+- name: create raid1 pool
+  shell: zpool create otus1 mirror /dev/sdb /dev/sdc
+
+# Создадим второй зеркальный пул на двух дисках
+- name: create raid1 pool
+  shell: zpool create otus2 mirror /dev/sdd /dev/sde
+
+# Создадим третий зеркальный пул на двух дисках
+- name: create raid1 pool
+  shell: zpool create otus3 mirror /dev/sdf /dev/sdg
+
+# Создадим четвертый зеркальный пул на двух дисках
+- name: create raid1 pool
+  shell: zpool create otus4 mirror /dev/sdh /dev/sdi
+
+# Посмотрим информацию о пулах и выведем её в лог
+- name: Get disk information
+  shell: echo -e "\n\n Посмотрим информацию о пулах (zpool list) \n" >> /tmp/logfile && zpool list >> /tmp/logfile
+
+# Добавим разные алгоритмы сжатия на разные пулы (lzljb)
+- name: set lzlib
+  shell: zfs set compression=lzjb otus1
+
+# Добавим разные алгоритмы сжатия на разные пулы (lz4)
+- name: set lz4
+  shell: zfs set compression=lz4 otus2
+
+  # Добавим разные алгоритмы сжатия на разные пулы (gzip)
+- name: set gzip
+  shell: zfs set compression=gzip otus3
+
+  # Добавим разные алгоритмы сжатия на разные пулы (zle)
+- name: set zle
+  shell: zfs set compression=zle otus4
+
+# Посмотрим информацию о пулах и выведем её в лог
+- name: Get disk information
+  shell: echo -e "\n\n Посмотрим информацию о пулах (zpool list) \n" >> /tmp/logfile && zpool list >> /tmp/logfile
+
+# Посмотрим информацию о сжатии и выведем её в лог
+- name: Get compression info
+  shell: echo -e "\n\n Посмотрим информацию о сжатии (zfs get all | grep compression) \n" >> /tmp/logfile && zfs get all | grep compression >> /tmp/logfile
+
+# Скачаем файл во все пулы
+- name: Download file into each pools
+  shell: for i in {1..4}; do wget -P /otus$i https://gutenberg.org/cache/epub/2600/pg2600.converter.log; done
+
+# Проверим результат и добавим его в лог
+- name: Get file info
+  shell: echo -e "\n\n Посмотрим на полученный файл (ls -l /otus*) \n" >> /tmp/logfile && ls -l /otus* >> /tmp/logfile
+
+# Проверим степень сжатия файлов и добавим информацию в лог
+- name: Get file ratio info
+  shell: echo -e "\n\n Проверим степень сжатия файлов (zfs get all | grep compressratio | grep -v ref) \n" >> /tmp/logfile && zfs get all | grep compressratio | grep -v ref >> /tmp/logfile
+
+# Скачаем архив
+- name: Get arhive
+  shell: wget -O archive.tar.gz -t 10 --no-check-certificate 'https://drive.usercontent.google.com/download?id=1MvrcEp-WgAQe57aDEzxSRalPAwbNN1Bb&export=download' 
+
+# Распкуем архив
+- name: Unpack arhive
+  shell: tar -xzvf archive.tar.gz
+
+# Проверим, возможно ли импортировать данный каталог в пул
+- name: Test import zpool
+  shell: echo -e "\n\n Проверим, можно ли импортировать полученный каталог в пул (zpool import -d zpoolexport/) \n" >> /tmp/logfile && zpool import -d zpoolexport/ >> /tmp/logfile 
+
+# Сделаем импорт данного пула к нам в ОС и посмотрим его статус
+- name: Import zpool
+  shell: zpool import -d zpoolexport/ otus && echo -e "\n\n Сделаем импорт данного пула к нам в ОС и посмотрим его статус (zpool import -d zpoolexport/ otus && zpool status \n" >> /tmp/logfile && zpool status >> /tmp/logfile
+
+# Запросим все параметры файловой системы
+- name: zfs get all otus
+  shell: echo -e "\n\n Запросим все параметры файловой системы (zfs get all otus) \n" >> /tmp/logfile && zfs get all otus >> /tmp/logfile
+
+# Получим несколько конкретных параметров
+- name: zfs get available otus
+  shell: echo -e "\n\n Получим несколько конкретных параметров (zfs get available otus) \n" >> /tmp/logfile && zfs get available otus >> /tmp/logfile
+
+- name: zfs get readonly otus
+  shell: echo -e "\n\n zfs get readonly otus \n" >> /tmp/logfile && zfs get readonly otus >> /tmp/logfile
+
+- name: zfs get recordsize otus
+  shell: echo -e "\n\n zfs get recordsize otus \n"  >> /tmp/logfile && zfs get recordsize otus >> /tmp/logfile
+
+- name: zfs get compression otus
+  shell: echo -e "\n\n zfs get compression otus \n"  >> /tmp/logfile && zfs get compression otus >> /tmp/logfile
+
+- name: zfs get checksum otus
+  shell: echo -e "\n\n zfs get checksum otus \n"  >> /tmp/logfile && zfs get checksum otus >> /tmp/logfile
+
+# # Скачаем файл, указанный в задании
+# - name: get zfs task-file
+#   # shell: wget -O /tmp/otus_task2.file -t 10 --no-check-certificate https://drive.usercontent.google.com/download?id=1wgxjih8YZ-cqLqaZVa0lA3h3Y029c3oI&export=download
+#   get_url:
+#     url: https://drive.usercontent.google.com/download?id=1wgxjih8YZ-cqLqaZVa0lA3h3Y029c3oI&export=download
+#     dest: otus_task2.file #../files/
+#     mode: '0755'
+#   delegate_to: localhost
+
+- name: copy zfs task-file
+  copy:
+    src: otus_task2.file
+    dest: /tmp/otus_task2.file
+    owner: root
+    group: root
+    mode: '0755'
+
+# Восстановим файловую систему из снапшота
+- name: zfs receive otus
+  shell: zfs receive otus/test@today < /tmp/otus_task2.file
+
+# Ищем в каталоге /otus/test файл с именем “secret_message” и добавляем в лог его содержимое
+- name: find file
+  shell: echo -e "\n\n Поищем сообщение и добавим его в лог (find /otus/test -name "secret_message")  \n"  >> /tmp/logfile && find /otus/test -name "secret_message" >> /tmp/logfile
+
+# Получим лог-файл с vagrant-ВМ
+- name: fetch logfile
+  fetch:
+    src: /tmp/logfile
+    dest: ../
